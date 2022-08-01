@@ -1,19 +1,10 @@
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from typing import Type
-from torch import nn
-from torch.optim import optimizer
 import rasterio
-import zipfile
-from matplotlib import pyplot as plt
-import datetime
 from torchvision import transforms as transforms
-import shutil
-import torchmetrics
 import os
-import pytorch_lightning as pl
-import sklearn
 from torch.nn import functional as F
 import tqdm
 
@@ -23,7 +14,7 @@ def minmax(array : Type[np.ndarray], dim = 0):
     array = (array-min)/(max-min)
     return array
 
-def log_minmax(array : Type[np.ndarray], dim = 0):
+def log_minmax(array : Type[np.ndarray]):
     min = array.min()
     array = array - min + 1
     array = np.log(array)
@@ -43,15 +34,15 @@ def prepare_raw_files(region:str):
         print('No Data Found. Loading from Raw Data')
         lidar_image = rasterio.open(f'../Data/{region}/{region}_lidar.tif').read()
         lidar_array = np.array(lidar_image)
-        lidar_array = log_minmax(lidar_array, dim=(0,1))
+        lidar_array = log_minmax(lidar_array)
 
         lidar_1n_image = rasterio.open(f'../Data/{region}/{region}_lidar_1n.tif').read()
         lidar_1n_array = np.array(lidar_1n_image)
-        lidar_1n_array = log_minmax(lidar_1n_array, dim=(0,1))
+        lidar_1n_array = log_minmax(lidar_1n_array)
 
         lidar_nt_image = rasterio.open(f'../Data/{region}/{region}_lidar_nt.tif').read()
         lidar_nt_array = np.array(lidar_nt_image)
-        lidar_nt_array = log_minmax(lidar_nt_array, dim=(0,1))
+        lidar_nt_array = log_minmax(lidar_nt_array)
 
         RGB2020_image = rasterio.open(f'../Data/{region}/{region}_RGB2020.tif').read()
         RGB2020_array = np.array(RGB2020_image)

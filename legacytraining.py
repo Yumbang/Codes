@@ -1,20 +1,15 @@
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from typing import Type
 from torch import nn
-from torch.optim import optimizer
 import rasterio
 import zipfile
 from matplotlib import pyplot as plt
 import datetime
 from torchvision import transforms as transforms
 import shutil
-import torchmetrics
 import os
-import pytorch_lightning as pl
-import sklearn
-from torch.nn import functional as F
 import tqdm
 
 def save_result(model: Type[nn.Module], dataloader : Type[DataLoader], path:str, description:str = '', reference_data:str = '', patch_size:int = 60, now = datetime.datetime.now()):

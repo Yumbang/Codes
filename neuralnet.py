@@ -1,21 +1,8 @@
-import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
 from typing import Type
 from torch import nn
-from torch.optim import optimizer
-import rasterio
-import zipfile
-from matplotlib import pyplot as plt
-import datetime
 from torchvision import transforms as transforms
-import shutil
-import torchmetrics
-import os
-import pytorch_lightning as pl
-import sklearn
 from torch.nn import functional as F
-import tqdm
 
 def crop_add(skip:Type[torch.Tensor], target:Type[torch.Tensor])->torch.Tensor:
     cropped_skip = skip[:,:,(skip.shape[-2]-target.shape[-2])//2:(skip.shape[-2]+target.shape[-2])//2,(skip.shape[-1]-target.shape[-1])//2:(skip.shape[-1]+target.shape[-1])//2]
