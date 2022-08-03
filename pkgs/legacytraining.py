@@ -12,24 +12,35 @@ import shutil
 import os
 import tqdm
 
-def save_result(model: Type[nn.Module], dataloader : Type[DataLoader], path:str, description:str = '', reference_data:str = '', patch_size:int = 60, now = datetime.datetime.now()):
-    best_model = model
+def save_result(model: Type[nn.Module], dataloader : Type[DataLoader], path:str, device, description:str = '', reference_data:str = '', patch_size:int = 60, now = datetime.datetime.now()):
+    best_model = model.to(device)
     os.makedirs(os.path.join(path,f'{now.year}.{now.month}.{now.day}/', f'{description}/','tmp/'), exist_ok=True)
     zipped_results = zipfile.ZipFile(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}.zip'), 'w')
-    prediction = np.zeros((2400//patch_size,2400//patch_size,7))
+    prediction = np.zeros((288, 2, 7, 100, 100))
 
     with tqdm.tqdm(enumerate(dataloader)) as data_pbar:
         data_pbar.set_description('Predicting...')
-        for i, (data, index_OHE, index) in data_pbar:
-            prediction[i, :, :] = best_model(data).detach().numpy()
+        for i, (data, data_reg, index_OHE, index) in data_pbar:
+            data = data.to(device)
+            data_reg = data_reg.to(device)
+            prediction[i, :, :,:,:] = best_model(data, data_reg).cpu().detach().numpy()
 
     
 
     prediction_expanded = np.zeros((7,2400,2400))
-    for i in range(2400//patch_size):
-        for j in range(2400//patch_size):
+    for i in range(24):
+        for j in range(12):
             for k in range(7):
-                prediction_expanded[k,i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size] = prediction[i,j,k]
+                prediction_expanded[k,i*patch_size:(i+1)*patch_size, 2*j*patch_size:(2*j+1)*patch_size] = prediction[12*i+j, 0, k, :, :]
+                prediction_expanded[k,i*patch_size:(i+1)*patch_size, (2*j+1)*patch_size:(2*j+2)*patch_size] = prediction[12*i+j, 1, k, :, :]
+    
+    plt.figure(figsize=(20,20))
+    plt.imshow(prediction_expanded[-1,:,:])
+    print('Type yes to continue')
+    cont = input()
+    if cont != 'yes':
+        return 0
+
 
     reference_image = rasterio.open(reference_data)
     layer_index = [1,2,7,8,9,10,11]
@@ -79,20 +90,19 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
         train_running_loss = 0.0
         valid_running_loss = 0.0
 
-        print(f'EPOCH #{epoch}')
+        print(f'EPOCH [{epoch}/{num_epochs}]')
         print('----------')
         
 
         for state in ['Train', 'Validation']:
             pbar = tqdm.tqdm(dataloaders[state])
             for batch in pbar:
-                inputs, inputs_reg, labels_OHE, _ = batch
+                inputs, _, labels_OHE, _ = batch
                 inputs = inputs.to(device)
-                inputs_reg = inputs_reg.to(device)
                 labels_OHE = labels_OHE.to(device=device, dtype=torch.int64)
                 model.to(device)
                 
-                outputs = model(inputs, inputs_reg)
+                outputs = model(inputs)
                 
                 optimizer.zero_grad()
 

@@ -67,25 +67,26 @@ class UrbanGreenRegression(nn.Module):
         return torch.softmax(x, dim=-1)
 
 class Splitted_Regression(nn.Module):
-    def __init__(self):
+    def __init__(self, device = 'cuda:0'):
         super(Splitted_Regression, self).__init__()
+        self.device = device
         self.regression = UrbanGreenRegression() # 4차원 텐서만 받음.
         self.regression.load_state_dict(torch.load('/home/bcyoon/Byeongchan/Data/N12/Model/Segmentation/Regression/2022.7.26/Best_Model_Parameters_of_15:32_patch_10_pointwiseConv.pth'))
-        self.regression.to('cuda:0')
+        self.regression.to(device)
         for param in self.regression.parameters():
             param.requires_grad = False
         #self.batchnorm = nn.BatchNorm2d(7)
     def forward(self, x):
         # x : (batch, 100, 6, 10, 10) 데이터
         out = torch.zeros(x.shape[0],7,100)
-        out = out.to('cuda:0')
+        out = out.to(device = self.device)
         for i in range(x.shape[0]):
             tmp = self.regression(x[i,:,:,:,:])
             #print(tmp.shape)
             out[i,:,:] = torch.transpose(tmp, 0, 1)
         out = out.view(x.shape[0], 7, 10, 10)
         #Bilinear Interpolation 추가할 것
-        out = F.interpolate(out, size=(100,100), mode='nearest')
+        out = F.interpolate(out, size=(100,100), mode='bilinear')
         #out = self.batchnorm(out)
         return out
 
@@ -107,9 +108,9 @@ class SegBlock(nn.Module):
         return x
 
 class UNet(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channel:int = 3):
         super(UNet, self).__init__()
-        self.enc1 = SegBlock(True, 3,64)
+        self.enc1 = SegBlock(True, in_channel=in_channel,out_channel=64)
         self.pool1 = nn.MaxPool2d(2)
         self.enc2 = SegBlock(True, 64,128)
         self.pool2 = nn.MaxPool2d(2)
