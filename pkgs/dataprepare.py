@@ -88,6 +88,7 @@ class TrainDataset2(Dataset):
             for j in range(0,data_array.shape[2]//patch_size):
                 self.data[data_array.shape[1]//patch_size*i+j,:,:,:] = data_array[:,i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size]
 
+
         self.label_OHE = np.zeros(((data_array.shape[1]//patch_size) * (data_array.shape[2]//patch_size), target_array_OHE.shape[0] ,patch_size, patch_size), dtype=float)
         for k in range(0,data_array.shape[1]//patch_size):
             for l in range(0,data_array.shape[2]//patch_size):
@@ -157,7 +158,8 @@ class TrainDataset3(Dataset):
         self.is_evaluating = is_evaluating
         seed = 386579
 
-        #print(f'Data shape: {data_array.shape} | Target shape: {target_array.shape}')
+        
+        #print(f'Data shape: {data_array.shape} | Target shape: {target_array_OHE.shape}')
 
         self.data = np.zeros(((data_array.shape[1]//patch_size) * (data_array.shape[2]//patch_size), data_array.shape[0], patch_size, patch_size))
 
@@ -165,10 +167,15 @@ class TrainDataset3(Dataset):
             for j in range(0,data_array.shape[2]//patch_size):
                 self.data[data_array.shape[1]//patch_size*i+j,:,:,:] = data_array[:,i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size]
 
-        self.label_OHE = np.zeros(((data_array.shape[1]//patch_size) * (data_array.shape[2]//patch_size), target_array_OHE.shape[0] ,patch_size, patch_size), dtype=float)
+        '''self.label_OHE = np.zeros(((data_array.shape[1]//patch_size) * (data_array.shape[2]//patch_size), target_array_OHE.shape[0] ,patch_size, patch_size), dtype=float)
         for k in range(0,data_array.shape[1]//patch_size):
             for l in range(0,data_array.shape[2]//patch_size):
-                self.label_OHE[data_array.shape[1]//patch_size*k+l,:,:,:] = target_array_OHE[:,i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size]
+                self.label_OHE[data_array.shape[1]//patch_size*k+l,:,:,:] = target_array_OHE[:,i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size]'''
+
+        self.label_OHE = np.zeros(((data_array.shape[1]//patch_size) * (data_array.shape[2]//patch_size),patch_size, patch_size), dtype=float)
+        for k in range(0,data_array.shape[1]//patch_size):
+            for l in range(0,data_array.shape[2]//patch_size):
+                self.label_OHE[data_array.shape[1]//patch_size*k+l,:,:] = target_array_RAW[i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size]
 
         self.label_RAW = np.zeros(((data_array.shape[1]//patch_size) * (data_array.shape[2]//patch_size),data_array.shape[0]+1))
         for k in range(0,data_array.shape[1]//patch_size):

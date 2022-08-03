@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from typing import Type
-from torch import nn
+from torch import dtype, nn
 import rasterio
 import zipfile
 from matplotlib import pyplot as plt
@@ -73,39 +73,41 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
     os.makedirs(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', 'tmp/'), exist_ok=True)
     zipped_model = zipfile.ZipFile(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', '{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}'+'.zip'), 'w')
     
-    epoch_range = tqdm.trange(num_epochs)
+    epoch_range = range(num_epochs)
     for epoch in epoch_range:
 
         train_running_loss = 0.0
         valid_running_loss = 0.0
 
-        epoch_range.set_description(f'EPOCH #{epoch}')
+        print(f'EPOCH #{epoch}')
+        print('----------')
         
 
         for state in ['Train', 'Validation']:
-            #pbar = tqdm.tqdm(dataloaders[state])
-            for inputs, labels_OHE, labels in dataloaders[state]:
-                
+            pbar = tqdm.tqdm(dataloaders[state])
+            for batch in pbar:
+                inputs, inputs_reg, labels_OHE, _ = batch
                 inputs = inputs.to(device)
-                labels = labels.to(device)
+                inputs_reg = inputs_reg.to(device)
+                labels_OHE = labels_OHE.to(device=device, dtype=torch.int64)
                 model.to(device)
                 
-                outputs = model(inputs)
+                outputs = model(inputs, inputs_reg)
                 
                 optimizer.zero_grad()
 
                 if state == 'Train':
                     model.train()
-                    train_loss = criterion(outputs, labels)
+                    train_loss = criterion(outputs, labels_OHE)
                     train_loss.backward()
                     train_running_loss += train_loss.item() * inputs.size(0)
-                    #pbar.set_description('Train')
+                    pbar.set_description('Train')
                 
                 if state == 'Validation':
                     model.eval()
-                    valid_loss = criterion(outputs, labels)
+                    valid_loss = criterion(outputs, labels_OHE)
                     valid_running_loss += valid_loss.item() * inputs.size(0)
-                    #pbar.set_description('Valid')
+                    pbar.set_description('Valid')
 
                 optimizer.step()
                 #valid_running_similarity += metric(outputs, labels)
@@ -114,7 +116,6 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
                 #print(f'{i}th batch')
             #pbar.clear()
             
-        epoch_range.refresh()
 
         
         #print(f'Memory after a training : {torch.cuda.memory_allocated()/1024/1024}')
@@ -123,7 +124,7 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
         epoch_valid_loss = valid_running_loss / validating_patches
         scheduler.step(epoch_valid_loss)
 
-        #print(f'Valid loss: {epoch_valid_loss} | Train loss: {epoch_train_loss}')
+        print(f'Valid loss: {epoch_valid_loss} | Train loss: {epoch_train_loss}')
 
 
         if epoch_valid_loss < least_valid_loss:
@@ -148,9 +149,9 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
     shutil.copy(src=os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', 'tmp/', '{0:0=2d}.pth'.format(epoch)), dst=os.path.join(path,f'{now.year}.{now.month}.{now.day}/', 'Best_Model_Parameters_of_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}'+'.pth'))
     print('Model information is saved in '+os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', '{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}'+'.zip'))
 
-    model.load_state_dict(torch.load(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/','tmp/', '{0:0=2d}.pth'.format(best_model_epoch))))
+    '''model.load_state_dict(torch.load(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/','tmp/', '{0:0=2d}.pth'.format(best_model_epoch))))
     result_path = save_result(model = model.to('cpu'), dataloader=dataloaders['Prediction'], path=path, description=description, reference_data=reference_data, patch_size=patch_size, now=now)
-    print('Model result is saved in '+ result_path)
+    print('Model result is saved in '+ result_path)'''
     
     shutil.rmtree(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/','tmp/'))
     best_model_path = os.path.join(path,f'{now.year}.{now.month}.{now.day}/', 'Best_Model_Parameters_of_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}'+'.pth')
