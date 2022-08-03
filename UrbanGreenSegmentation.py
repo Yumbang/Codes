@@ -88,14 +88,14 @@ from pkgs import neuralnet
 
 # %%
 class UrbanGreenSegmentation(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channel:int=6):
         super(UrbanGreenSegmentation, self).__init__()
         
         # 3개 배치 사용시 메모리 5기가
         # 2개 배치 사용시 메모리 3.8기가
 
-        self.unet = neuralnet.UNet()
-        self.regression = neuralnet.Splitted_Regression()
+        self.unet = neuralnet.UNet(in_channel=in_channel)
+        #self.regression = neuralnet.Splitted_Regression()
         
         self.fc1 = nn.Conv2d(in_channels=64, out_channels=7, kernel_size=1)
         self.bn1 = nn.BatchNorm2d(7)
@@ -118,7 +118,7 @@ class UrbanGreenSegmentation(nn.Module):
 # %%
 def main():
     # --- GPU selection --- #
-    gpus = 7 # slot number (e.g., 3), no gpu use -> write just ' '
+    gpus = 6 # slot number (e.g., 3), no gpu use -> write just ' '
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"]=str(gpus)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -149,11 +149,12 @@ def main():
     }
     model = UrbanGreenSegmentation()
     criterion3 = nn.CrossEntropyLoss()
-    optimizer3 = torch.optim.Adam(model.parameters(), lr=0.001)
+    #옵티마이저 바꿔보기
+    optimizer3 = torch.optim.Adam(model.parameters(), lr=0.005)
     #스케줄러 steplr로 바꿔서 해보기. 
-    scheduler3 = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer3, 'min', patience=5, factor=0.75)
+    scheduler3 = torch.optim.lr_scheduler.StepLR(optimizer3, step_size = 50, gamma=0.9)
 
-    best_model_path = legacytraining.train_model(model, dataloaders=Dataloaders_ver3, criterion=criterion3, num_epochs = 100, optimizer=optimizer3, scheduler=scheduler3, path='../Data/N12/Model/Segmentation/', description='cross_entropy_test', device=device)
+    best_model_path = legacytraining.train_model(model, dataloaders=Dataloaders_ver3, criterion=criterion3, num_epochs = 100, optimizer=optimizer3, scheduler=scheduler3, path='../Data/N12/Model/Segmentation/', description='lr0.005', device=device)
     
 
 # %%
