@@ -24,7 +24,7 @@ def log_minmax(array : Type[np.ndarray]):
 
 
 
-def prepare_raw_files(region:str):
+def prepare_raw_files(region:str, categories = 7):
     if (os.path.exists(f'../Data/{region}/np/train_array.npy') and os.path.exists(f'../Data/{region}/np/target_array_OHE.npy')) and (os.path.exists(f'../Data/{region}/np/target_array_RAW.npy')):
         print('Preexisting Data Found. Load from it?')
         if input() == 'yes':
@@ -74,10 +74,6 @@ def prepare_raw_files(region:str):
             for i in range(encoded_target_array.shape[-1]):
                 target_array_OHE[i,:,:]=encoded_target_array[:,:,i]
             
-            os.makedirs(f'../Data/{region}/np', exist_ok=True)
-            np.save(f'../Data/{region}/np/train_array.npy', train_array)
-            np.save(f'../Data/{region}/np/target_array_RAW.npy', target_array)
-            np.save(f'../Data/{region}/np/target_array_OHE.npy', target_array_OHE)
     else:
         print('No Data Found. Loading from Raw Data')
         lidar_image = rasterio.open(f'../Data/{region}/{region}_lidar.tif').read()
@@ -120,11 +116,25 @@ def prepare_raw_files(region:str):
         encoded_target_array = np.eye(num)[target_array]
         for i in range(encoded_target_array.shape[-1]):
             target_array_OHE[i,:,:]=encoded_target_array[:,:,i]
+
+    if categories == 5:
+        #5 카테고리 분류
+        # 0 : Building
+        # 1 : The others
+        # 2 : Grass
+        # 3 : Shrub
+        # 4 : Tree
+        target_array = np.where(target_array == 2, 1, target_array)
+        target_array = np.where(target_array == 3, 1, target_array)
+        target_array = np.where(target_array == 4, 2, target_array)
+        target_array = np.where(target_array == 5, 3, target_array)
+        target_array = np.where(target_array == 6, 4, target_array)
         
-        os.makedirs(f'../Data/{region}/np', exist_ok=True)
-        np.save(f'../Data/{region}/np/train_array.npy', train_array)
-        np.save(f'../Data/{region}/np/target_array_RAW.npy', target_array)
-        np.save(f'../Data/{region}/np/target_array_OHE.npy', target_array_OHE)
+        
+    os.makedirs(f'../Data/{region}/np', exist_ok=True)
+    np.save(f'../Data/{region}/np/train_array.npy', train_array)
+    np.save(f'../Data/{region}/np/target_array_RAW.npy', target_array)
+    np.save(f'../Data/{region}/np/target_array_OHE.npy', target_array_OHE)
 
     return train_array, target_array.astype(int), target_array_OHE.astype(int)
 
@@ -301,7 +311,7 @@ class TrainDataset3(Dataset):
         return data_seg, data_reg, label_OHE, label_RAW
 
 class TrainDataset4(Dataset):
-    def __init__(self, data_array : Type[np.ndarray], target_array_OHE : Type[np.ndarray], target_array_RAW : Type[np.ndarray], patch_size : int, is_evaluating : bool = False, is_validating : bool = False, rotate : bool = False, train_ratio : float = 0.8):
+    def __init__(self, data_array : Type[np.ndarray], target_array_OHE : Type[np.ndarray], target_array_RAW : Type[np.ndarray], patch_size : int, is_evaluating : bool = False, is_validating : bool = False, rotate : bool = False, train_ratio : float = 0.8, categories = 7):
         self.is_validating = is_validating
         self.is_evaluating = is_evaluating
         seed = 386579
@@ -326,11 +336,11 @@ class TrainDataset4(Dataset):
             for l in range(0,data_array.shape[2]//patch_size):
                 self.label_OHE[data_array.shape[1]//patch_size*k+l,:,:] = target_array_RAW[k*patch_size:(k+1)*patch_size, l*patch_size:(l+1)*patch_size]
 
-        self.label_RAW = np.zeros(((data_array.shape[1]//patch_size) * (data_array.shape[2]//patch_size),data_array.shape[0]+1))
+        self.label_RAW = np.zeros(((data_array.shape[1]//patch_size) * (data_array.shape[2]//patch_size),categories))
         print(self.label_RAW.shape)
         for k in range(0,data_array.shape[1]//patch_size):
             for l in range(0,data_array.shape[2]//patch_size):
-                self.label_RAW[data_array.shape[1]//patch_size*k+l,:] = np.bincount(target_array_RAW[k*patch_size:(k+1)*patch_size, l*patch_size:(l+1)*patch_size].reshape(-1), minlength=7)/(patch_size*patch_size)
+                self.label_RAW[data_array.shape[1]//patch_size*k+l,:] = np.bincount(target_array_RAW[k*patch_size:(k+1)*patch_size, l*patch_size:(l+1)*patch_size].reshape(-1), minlength=categories)/(patch_size*patch_size)
 
 
         if not is_evaluating:

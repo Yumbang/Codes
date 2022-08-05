@@ -69,9 +69,68 @@ def save_result(model: Type[nn.Module], dataloader : Type[DataLoader], path:str,
     zipped_results.close()
     return os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}.zip')
 
+def save_result2(model: Type[nn.Module], dataloader : Type[DataLoader], path:str, device, description:str = '', reference_data:str = '', patch_size:int = 60, now = datetime.datetime.now(), categories = 7):
+    best_model = model.to(device)
+    os.makedirs(os.path.join(path,f'{now.year}.{now.month}.{now.day}/', f'{description}/','tmp/'), exist_ok=True)
+    zipped_results = zipfile.ZipFile(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}.zip'), 'w')
+    prediction = np.zeros((288, 2, categories, 100, 100))
+
+    with tqdm.tqdm(enumerate(dataloader)) as data_pbar:
+        data_pbar.set_description('Predicting...')
+        for i, (data, _, index_OHE, index) in data_pbar:
+            data = data.to(device)
+            prediction[i, :, :,:,:] = best_model(data).cpu().detach().numpy()
+
+    
+
+    prediction_expanded = np.zeros((categories,2400,2400))
+    for i in range(24):
+        for j in range(12):
+            for k in range(categories):
+                prediction_expanded[k,i*patch_size:(i+1)*patch_size, 2*j*patch_size:(2*j+1)*patch_size] = prediction[12*i+j, 0, k, :, :]
+                prediction_expanded[k,i*patch_size:(i+1)*patch_size, (2*j+1)*patch_size:(2*j+2)*patch_size] = prediction[12*i+j, 1, k, :, :]
+    
+    plt.figure(figsize=(20,20))
+    plt.imshow(prediction_expanded[-1,:,:])
+    print('Type yes to continue')
+    if input() != 'yes':
+        return 0
+
+
+    reference_image = rasterio.open(reference_data)
+    if categories == 7:
+        layer_index = [1,2,7,8,9,10,11]
+    elif categories == 5:
+        layer_index = [1,2,9,10,11]
+
+    with tqdm.trange(prediction_expanded.shape[0]) as write_pbar:
+        write_pbar.set_description('Writing data')
+        for i in write_pbar:
+            #print('a') 
+            processed_tiff = rasterio.open(
+                os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', 'tmp/', f'Result_{layer_index[i]}_{description}.tif'),
+                'w',
+                driver='GTiff',
+                height=prediction_expanded.shape[1],
+                width=prediction_expanded.shape[2],
+                count=1,
+                dtype=prediction_expanded.dtype,
+                crs=reference_image.crs,
+                transform=reference_image.transform,
+            )
+            #print('b')
+            processed_tiff.write(prediction_expanded[i,:,:],1)
+            processed_tiff.close()
+            #print('c')
+            zipped_results.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', 'tmp/', f'Result_{layer_index[i]}_{description}.tif'), f'Result_{layer_index[i]}_{description}.tif')
+
+    zipped_results.close()
+    return os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}.zip')
+
 def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num_epochs=13, train_rate: float = 0.8, batch_size: int = 60, path:str = '../Data/N12/Model/', description:str = 'no_description', reference_data:str = ''): 
     train_loss_history = []
     valid_loss_history = []
+    torch.autograd.set_detect_anomaly(True)
 
     patch_size = dataloaders['Train'].dataset.data.shape[-1]
     training_patches = len(dataloaders['Train'].dataset)

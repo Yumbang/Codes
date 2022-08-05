@@ -119,13 +119,13 @@ class UNet(nn.Module):
         self.enc4 = SegBlock(True, 256, 512)
         self.pool4 = nn.MaxPool2d(2)
         self.dec0 = SegBlock(False, 512, 1024)
-        self.upconv1 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
+        self.upconv1 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2, bias=False)
         self.dec1 = SegBlock(False,1024,512)
-        self.upconv2 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
+        self.upconv2 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2, bias=False)
         self.dec2 = SegBlock(False,512,256)
-        self.upconv3 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
+        self.upconv3 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2, bias=False)
         self.dec3 = SegBlock(False,256,128)
-        self.upconv4 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
+        self.upconv4 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2, bias=False)
         self.dec4 = SegBlock(False,128,64, is_last = True)
 
     def forward(self,x):
