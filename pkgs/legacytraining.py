@@ -93,7 +93,7 @@ def save_result2(model: Type[nn.Module], dataloader : Type[DataLoader], path:str
     plt.figure(figsize=(20,20))
     plt.imshow(prediction_expanded[-1,:,:])
     print('Type yes to continue')
-    if input() != 'yes':
+    if 'yes' != 'yes':
         return 0
 
 

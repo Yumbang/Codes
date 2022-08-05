@@ -166,7 +166,7 @@ def train_category_7():
 
 def train_category_5():
     # --- GPU selection --- #
-    gpus = 7 # slot number (e.g., 3), no gpu use -> write just ' '
+    gpus = 6 # slot number (e.g., 3), no gpu use -> write just ' '
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"]=str(gpus)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -203,7 +203,7 @@ def train_category_5():
     #스케줄러 steplr로 바꿔서 해보기. 
     scheduler3 = torch.optim.lr_scheduler.StepLR(optimizer3, step_size = 50, gamma=0.9)
 
-    best_model_path = legacytraining.train_model(model, dataloaders=Dataloaders_ver3, criterion=criterion3, num_epochs = 100, optimizer=optimizer3, scheduler=scheduler3, path='../Data/Model/Segmentation/Categories_5', description='Categories_5', device=device)
+    best_model_path = legacytraining.train_model(model, dataloaders=Dataloaders_ver3, criterion=criterion3, num_epochs = 100, optimizer=optimizer3, scheduler=scheduler3, path='../Data/Model/Segmentation/Categories_5', description='removed_softmax', device=device)
     
     model.to(device)
     model.load_state_dict(torch.load(best_model_path))
@@ -272,7 +272,7 @@ def train_category_5_SGD():
     
 # %%
 def main():
-    best_model_path = train_category_5_SGD()
+    best_model_path = train_category_5()
     print(best_model_path)
     return 0
 
