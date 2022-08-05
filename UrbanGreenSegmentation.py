@@ -102,7 +102,7 @@ class UrbanGreenSegmentation(nn.Module):
         self.bn1 = nn.BatchNorm2d(out_channel)
         #self.bn2 = nn.BatchNorm2d(14)
         #self.fc2 = nn.Conv2d(in_channels=14, out_channels=7, kernel_size=1)
-        self.softmax = nn.Softmax2d()
+
 
     def forward(self, x_seg):
         #x_reg = self.regression(x_reg)
@@ -112,7 +112,7 @@ class UrbanGreenSegmentation(nn.Module):
         #x_seg = torch.cat((x_reg, x_seg), dim=1)
         #x_seg = self.bn2(x_seg)
         #x_seg = self.fc2(x_seg)
-        x_seg = self.softmax(x_seg+1e-6)
+
         return x_seg
 
 def train_category_7():
