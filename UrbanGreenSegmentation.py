@@ -147,7 +147,7 @@ def train_category_7():
         'Validation' : DataLoader(Datasets_ver3['Validation'], batch_size=batch_size),
         'Prediction' : DataLoader(Datasets_ver3['Prediction'], batch_size=2400//patch_size)
     }
-    model = UrbanGreenSegmentation()
+    model = UrbanGreenSegmentation(out_channel=7)
     criterion3 = nn.CrossEntropyLoss()
     #옵티마이저 바꿔보기
     optimizer3 = torch.optim.Adam(model.parameters(), lr=0.005)
@@ -166,7 +166,7 @@ def train_category_7():
 
 def train_category_5():
     # --- GPU selection --- #
-    gpus = 6 # slot number (e.g., 3), no gpu use -> write just ' '
+    gpus = 7 # slot number (e.g., 3), no gpu use -> write just ' '
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"]=str(gpus)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -185,7 +185,7 @@ def train_category_5():
     batch_size = 4
     patch_size = 100
     train_ratio = 0.8
-    rotate_training_data = False
+    rotate_training_data = True
     Datasets_ver3 = {
         'Train' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, rotate = rotate_training_data, train_ratio = train_ratio, categories=5),
         'Validation' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, is_validating = True, rotate = rotate_training_data, train_ratio = train_ratio, categories=5),
@@ -196,25 +196,88 @@ def train_category_5():
         'Validation' : DataLoader(Datasets_ver3['Validation'], batch_size=batch_size),
         'Prediction' : DataLoader(Datasets_ver3['Prediction'], batch_size=2400//patch_size)
     }
-    model = UrbanGreenSegmentation()
+    model = UrbanGreenSegmentation(out_channel=5)
     criterion3 = nn.CrossEntropyLoss()
     #옵티마이저 바꿔보기
     optimizer3 = torch.optim.Adam(model.parameters(), lr=0.001)
     #스케줄러 steplr로 바꿔서 해보기. 
     scheduler3 = torch.optim.lr_scheduler.StepLR(optimizer3, step_size = 50, gamma=0.9)
 
-    best_model_path = legacytraining.train_model(model, dataloaders=Dataloaders_ver3, criterion=criterion3, num_epochs = 100, optimizer=optimizer3, scheduler=scheduler3, path='../Data/Model/Segmentation/Categories_5', description='removed_softmax', device=device)
+    description = str(input("Enter description for the model : "))
+    region = str(input("Enter region to evaluate : ")) or "N11"
+
+    best_model_path = legacytraining.train_model(model, dataloaders=Dataloaders_ver3, criterion=criterion3, num_epochs = 75, optimizer=optimizer3, scheduler=scheduler3, path='../Data/Model/Segmentation/Categories_5', description=description, device=device)
     
+
     model.to(device)
     model.load_state_dict(torch.load(best_model_path))
 
     #region = input('Type region to get result (default:N11)') or 'N11'
-    region = 'N11'
     raw_data_array_N11 ,raw_target_array_N11, OHE_target_array_N11 = dataprepare.prepare_raw_files(region, categories=5)
     N11_prediction_dataset = dataprepare.TrainDataset4(raw_data_array_N11, OHE_target_array_N11, raw_target_array_N11, patch_size = patch_size, is_evaluating = True, train_ratio = train_ratio, categories=5)
     N11_prediction_dataloader = DataLoader(N11_prediction_dataset, batch_size=2)
     reference_data = f'/home/bcyoon/Byeongchan/Data/{region}/{region}_lidar.tif'
-    result_path = legacytraining.save_result2(model.to('cpu'), dataloader=N11_prediction_dataloader, path=f'../Data/{region}/Model/Segmentation/', description='bias_false', reference_data=reference_data, patch_size=100, device = device, categories=5)
+    result_path = legacytraining.save_result2(model.to('cpu'), dataloader=N11_prediction_dataloader, path=f'../Data/{region}/Model/Segmentation/', description='bias_false', reference_data=reference_data, patch_size=patch_size, device = device, categories=5)
+    return f'Best Model Path : {best_model_path}\nResult Path : {result_path}'
+
+
+def train_category_5_DataParallel(gpu_list:str):
+    # --- GPU selection --- #
+    gpus = str(gpu_list) # slot number (e.g., 3), no gpu use -> write just ' '
+    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"]=str(gpus)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+    raw_data_array_N12 ,raw_target_array_N12, OHE_target_array_N12 = dataprepare.prepare_raw_files('N12', categories=5)
+    raw_data_array_H19 ,raw_target_array_H19, OHE_target_array_H19 = dataprepare.prepare_raw_files('H19', categories=5)
+    raw_data_array_M18 ,raw_target_array_M18, OHE_target_array_M18 = dataprepare.prepare_raw_files('M18', categories=5)
+
+    raw_data_array = np.concatenate((raw_data_array_N12, raw_data_array_H19, raw_data_array_M18), axis=-1)
+    raw_target_array = np.concatenate((raw_target_array_N12, raw_target_array_H19, raw_target_array_M18), axis=-1)
+    OHE_target_array = np.concatenate((OHE_target_array_N12, OHE_target_array_H19, OHE_target_array_M18), axis=-1)
+
+
+
+    batch_size = 16
+    patch_size = 100
+    train_ratio = 0.8
+    rotate_training_data = True
+    num_gpus = torch.cuda.device_count()
+    num_workers = num_gpus*4
+
+    Datasets_ver3 = {
+        'Train' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, rotate = rotate_training_data, train_ratio = train_ratio, categories=5),
+        'Validation' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, is_validating = True, rotate = rotate_training_data, train_ratio = train_ratio, categories=5),
+        'Prediction' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, is_evaluating = True, train_ratio = train_ratio, categories=5)
+    }
+    Dataloaders_ver3 = {
+        'Train' : DataLoader(Datasets_ver3['Train'], batch_size=batch_size, num_workers=num_workers),
+        'Validation' : DataLoader(Datasets_ver3['Validation'], batch_size=batch_size, num_workers=num_workers),
+        'Prediction' : DataLoader(Datasets_ver3['Prediction'], batch_size=2400//patch_size, num_workers=num_workers)
+    }
+    model = UrbanGreenSegmentation(out_channel=5)
+    model = nn.DataParallel(model)
+    criterion3 = nn.CrossEntropyLoss()
+    #옵티마이저 바꿔보기
+    optimizer3 = torch.optim.Adam(model.parameters(), lr=0.001)
+    #스케줄러 steplr로 바꿔서 해보기. 
+    scheduler3 = torch.optim.lr_scheduler.StepLR(optimizer3, step_size = 50, gamma=0.9)
+
+    description = str(input("Enter description for the model : "))
+    region = str(input("Enter region to evaluate (Default : N11) : ")) or "N11"
+
+    best_model_path = legacytraining.train_model(model, dataloaders=Dataloaders_ver3, criterion=criterion3, num_epochs = 75, optimizer=optimizer3, scheduler=scheduler3, path='../Data/Model/Segmentation/Categories_5', description=description, device=device)
+    
+
+    model.to(device)
+    model.load_state_dict(torch.load(best_model_path))
+
+    raw_data_array_N11 ,raw_target_array_N11, OHE_target_array_N11 = dataprepare.prepare_raw_files(region, categories=5)
+    N11_prediction_dataset = dataprepare.TrainDataset4(raw_data_array_N11, OHE_target_array_N11, raw_target_array_N11, patch_size = patch_size, is_evaluating = True, train_ratio = train_ratio, categories=5)
+    N11_prediction_dataloader = DataLoader(N11_prediction_dataset, batch_size=2)
+    reference_data = f'/home/bcyoon/Byeongchan/Data/{region}/{region}_lidar.tif'
+    result_path = legacytraining.save_result2(model.to('cpu'), dataloader=N11_prediction_dataloader, path=f'../Data/{region}/Model/Segmentation/', description='bias_false', reference_data=reference_data, patch_size=patch_size, device = device, categories=5)
     return f'Best Model Path : {best_model_path}\nResult Path : {result_path}'
 
 def train_category_5_SGD():
@@ -249,15 +312,17 @@ def train_category_5_SGD():
         'Validation' : DataLoader(Datasets_ver3['Validation'], batch_size=batch_size),
         'Prediction' : DataLoader(Datasets_ver3['Prediction'], batch_size=2400//patch_size)
     }
-    model = UrbanGreenSegmentation()
+    model = UrbanGreenSegmentation(out_channel=5)
     criterion3 = nn.CrossEntropyLoss()
     #옵티마이저 바꿔보기
     optimizer3 = torch.optim.SGD(model.parameters(),lr = 0.0001, momentum = 0.9)
     #스케줄러 steplr로 바꿔서 해보기. 
     scheduler3 = torch.optim.lr_scheduler.StepLR(optimizer3, step_size = 50, gamma=0.9)
 
-    best_model_path = legacytraining.train_model(model, dataloaders=Dataloaders_ver3, criterion=criterion3, num_epochs = 100, optimizer=optimizer3, scheduler=scheduler3, path='../Data/Model/Segmentation/Categories_5', description='Categories_5', device=device)
-    
+    #best_model_path = legacytraining.train_model(model, dataloaders=Dataloaders_ver3, criterion=criterion3, num_epochs = 100, optimizer=optimizer3, scheduler=scheduler3, path='../Data/Model/Segmentation/Categories_5', description='Categories_5', device=device)
+    print('No Training. Using pretrained parameters...')
+    best_model_path = '/home/bcyoon/Byeongchan/Data/Model/Segmentation/Categories_5/2022.8.5/Best_Model_Parameters_of_15:55_removed_softmax.pth'
+
     model.to(device)
     model.load_state_dict(torch.load(best_model_path))
 
@@ -270,9 +335,19 @@ def train_category_5_SGD():
     result_path = legacytraining.save_result2(model.to('cpu'), dataloader=N11_prediction_dataloader, path=f'../Data/{region}/Model/Segmentation/', description='lr_0.0001', reference_data=reference_data, patch_size=100, device = device, categories=5)
     return f'Best Model Path : {best_model_path}\nResult Path : {result_path}'
     
+def save_result(model, best_model_path):
+    patch_size = 100
+    region = str(input()) or 'N11'
+    device = 'cpu'
+    raw_data_array_N11 ,raw_target_array_N11, OHE_target_array_N11 = dataprepare.prepare_raw_files(region, categories=5)
+    N11_prediction_dataset = dataprepare.TrainDataset4(raw_data_array_N11, OHE_target_array_N11, raw_target_array_N11, patch_size = patch_size, is_evaluating = True, categories=5)
+    N11_prediction_dataloader = DataLoader(N11_prediction_dataset, batch_size=2)
+    reference_data = f'/home/bcyoon/Byeongchan/Data/{region}/{region}_lidar.tif'
+    result_path = legacytraining.save_result2(model.to('cpu'), dataloader=N11_prediction_dataloader, path=f'../Data/{region}/Model/Segmentation/', description='bias_false', reference_data=reference_data, patch_size=patch_size, device = device, categories=5)
+    return f'Best Model Path : {best_model_path}\nResult Path : {result_path}'
 # %%
 def main():
-    best_model_path = train_category_5()
+    best_model_path = train_category_5_DataParallel(gpu_list='4,5,6,7')
     print(best_model_path)
     return 0
 
