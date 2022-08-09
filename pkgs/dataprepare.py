@@ -24,6 +24,8 @@ def log_minmax(array : Type[np.ndarray]):
 
 
 
+
+
 def prepare_raw_files(region:str, categories = 7):
     if (os.path.exists(f'../Data/{region}/np/train_array.npy') and os.path.exists(f'../Data/{region}/np/target_array_OHE.npy')) and (os.path.exists(f'../Data/{region}/np/target_array_RAW.npy')):
         print('Preexisting Data Found. Load from it?')

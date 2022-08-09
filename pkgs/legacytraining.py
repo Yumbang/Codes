@@ -73,8 +73,8 @@ def save_result2(model: Type[nn.Module], dataloader : Type[DataLoader], path:str
     device = device
     descr = description or input("Enter Description : ")
     best_model = model.to(device)
-    os.makedirs(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/'), exist_ok=True)
-    zipped_results = zipfile.ZipFile(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}.zip'), 'w')
+    os.makedirs(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/',f'tmp_{descr}/'), exist_ok=True)
+    zipped_results = zipfile.ZipFile(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{descr}.zip'), 'w')
     prediction = np.zeros((288, 2, categories, 100, 100))
 
     with tqdm.tqdm(enumerate(dataloader)) as data_pbar:
@@ -116,7 +116,7 @@ def save_result2(model: Type[nn.Module], dataloader : Type[DataLoader], path:str
             else:
                 idx = 'Total'
             processed_tiff = rasterio.open(
-                os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', f'Result_{idx}_{description}.tif'),
+                os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/',f'tmp_{descr}/', f'Result_{idx}_{descr}.tif'),
                 mode='w',
                 driver='GTiff',
                 height=prediction_expanded.shape[1],
@@ -130,10 +130,10 @@ def save_result2(model: Type[nn.Module], dataloader : Type[DataLoader], path:str
             processed_tiff.close()
             #print('c')
 
-            zipped_results.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', f'Result_{idx}_{description}.tif'), f'Result_{idx}_{description}.tif')
+            zipped_results.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/',f'tmp_{descr}/', f'Result_{idx}_{descr}.tif'), f'Result_{idx}_{descr}.tif')
 
     zipped_results.close()
-    return os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}.zip')
+    return os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{descr}.zip')
 
 def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num_epochs=13, train_rate: float = 0.8, batch_size: int = 60, path:str = '../Data/N12/Model/', description:str = 'no_description', reference_data:str = ''): 
     train_loss_history = []
@@ -217,8 +217,8 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
     plt.figure(figsize=(20,8))
     plt.plot(train_loss_history, 'r-')
     plt.plot(valid_loss_history, 'bo')
-    plt.savefig(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', 'Tendency.png'), dpi=300)
-    zipped_model.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', 'Tendency.png'))
+    plt.savefig(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', f'Tendency_{description}.png'), dpi=300)
+    zipped_model.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', f'Tendency_{description}.png'))
     zipped_model.writestr('README.txt', f'{description}\nThe best Model : #{best_model_epoch}th model with loss {least_valid_loss}\nOptimizer : {optimizer}\nLoss function : {criterion}\nBatch size : {batch_size}\nScheduler : {scheduler}\nPatch size : {patch_size}\nTotal epochs : {num_epochs}\nModel information :\n{model.modules}')
     
     print('Best loss: {:4f}, in Epoch #{:0=3d}'.format(least_valid_loss, best_model_epoch))    
