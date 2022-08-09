@@ -70,9 +70,10 @@ def save_result(model: Type[nn.Module], dataloader : Type[DataLoader], path:str,
     return os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}.zip')
 
 def save_result2(model: Type[nn.Module], dataloader : Type[DataLoader], path:str, device, description:str = '', reference_data:str = '', patch_size:int = 100, now = datetime.datetime.now(), categories = 7):
-    device = 'cpu'
+    device = device
+    descr = description or input("Enter Description : ")
     best_model = model.to(device)
-    os.makedirs(os.path.join(path,f'{now.year}.{now.month}.{now.day}/', f'{description}/','tmp/'), exist_ok=True)
+    os.makedirs(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/'), exist_ok=True)
     zipped_results = zipfile.ZipFile(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}.zip'), 'w')
     prediction = np.zeros((288, 2, categories, 100, 100))
 
@@ -103,31 +104,33 @@ def save_result2(model: Type[nn.Module], dataloader : Type[DataLoader], path:str
     elif categories == 5:
         layer_index = [1,2,9,10,11]
     
-    prediction_expanded[-1,:,:] = layer_index[prediction_expanded[-1,:,:]]
-
+    '''idx = np.array(prediction_expanded[-1,:,:], dtype=int)
+    prediction_expanded[-1,:,:] = layer_index[idx]'''
+    print(layer_index)
     with tqdm.trange(prediction_expanded.shape[0]) as write_pbar:
         write_pbar.set_description('Writing data')
         for i in write_pbar:
             #print('a') 
+            if i < categories:
+                idx = layer_index[i]
+            else:
+                idx = 'Total'
             processed_tiff = rasterio.open(
-                os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', 'tmp/', f'Result_{layer_index[i]}_{description}.tif'),
-                'w',
+                os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', f'Result_{idx}_{description}.tif'),
+                mode='w',
                 driver='GTiff',
                 height=prediction_expanded.shape[1],
                 width=prediction_expanded.shape[2],
                 count=1,
                 dtype=prediction_expanded.dtype,
                 crs=reference_image.crs,
-                transform=reference_image.transform,
+                transform=reference_image.transform
             )
-            #print('b')
             processed_tiff.write(prediction_expanded[i,:,:],1)
             processed_tiff.close()
             #print('c')
-            if i < categories:
-                zipped_results.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', 'tmp/', f'Result_{layer_index[i]}_{description}.tif'), f'Result_{layer_index[i]}_{description}.tif')
-            else:
-                zipped_results.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', 'tmp/', f'Result_Total_{description}.tif'), f'Result_Total_{description}.tif')
+
+            zipped_results.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', f'Result_{idx}_{description}.tif'), f'Result_{idx}_{description}.tif')
 
     zipped_results.close()
     return os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}.zip')

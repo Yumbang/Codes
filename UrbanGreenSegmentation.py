@@ -242,7 +242,7 @@ def train_category_5_DataParallel(gpu_list:str):
     batch_size = 16
     patch_size = 100
     train_ratio = 0.8
-    rotate_training_data = True
+    rotate_training_data = False
     num_gpus = torch.cuda.device_count()
     num_workers = num_gpus*4
 
