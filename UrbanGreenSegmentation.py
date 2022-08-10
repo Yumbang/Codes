@@ -115,14 +115,16 @@ class UrbanGreenSegmentation(nn.Module):
 
         return x_seg
 
-class UrbanGreenSegmentation_Batchnorm_Deactivated(nn.Module):
+
+
+class UrbanGreenSegmentation_Interpolation(nn.Module):
     def __init__(self, in_channel:int=6, out_channel:int=7):
-        super(UrbanGreenSegmentation_Batchnorm_Deactivated, self).__init__()
+        super(UrbanGreenSegmentation_Interpolation, self).__init__()
         
         # 3개 배치 사용시 메모리 5기가
         # 2개 배치 사용시 메모리 3.8기가
 
-        self.unet = neuralnet.UNet_Batchnorm_Deactivated(in_channel=in_channel)
+        self.unet = neuralnet.UNet_Interpolation(in_channel=in_channel)
         #self.regression = neuralnet.Splitted_Regression()
         
         self.fc1 = nn.Conv2d(in_channels=64, out_channels=out_channel, kernel_size=1, bias=False)
@@ -141,6 +143,7 @@ class UrbanGreenSegmentation_Batchnorm_Deactivated(nn.Module):
         #x_seg = self.fc2(x_seg)
 
         return x_seg
+
 def train_category_7():
     # --- GPU selection --- #
     gpus = 6 # slot number (e.g., 3), no gpu use -> write just ' '
@@ -282,7 +285,7 @@ def train_category_5_DataParallel(gpu_list:str):
         'Validation' : DataLoader(Datasets_ver3['Validation'], batch_size=batch_size, num_workers=num_workers),
         'Prediction' : DataLoader(Datasets_ver3['Prediction'], batch_size=2400//patch_size, num_workers=num_workers)
     }
-    model = UrbanGreenSegmentation_Batchnorm_Deactivated(out_channel=5)
+    model = UrbanGreenSegmentation(out_channel=5)
     model = nn.DataParallel(model)
     criterion3 = nn.CrossEntropyLoss()
     #옵티마이저 바꿔보기
@@ -306,12 +309,12 @@ def train_category_5_DataParallel(gpu_list:str):
     result_path = legacytraining.save_result2(model.to('cpu'), dataloader=N11_prediction_dataloader, path=f'../Data/{region}/Model/Segmentation/', description=description, reference_data=reference_data, patch_size=patch_size, device = device, categories=5)
     return f'Best Model Path : {best_model_path}\nResult Path : {result_path}'
 
-def train_category_5_SGD():
+def train_category_5_Interpolate_DataParallel(gpu_list:str):
     # --- GPU selection --- #
-    gpus = 5 # slot number (e.g., 3), no gpu use -> write just ' '
+    gpus = str(gpu_list) # slot number (e.g., 3), no gpu use -> write just ' '
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"]=str(gpus)
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
     raw_data_array_N12 ,raw_target_array_N12, OHE_target_array_N12 = dataprepare.prepare_raw_files('N12', categories=5)
@@ -324,67 +327,18 @@ def train_category_5_SGD():
 
 
 
-    batch_size = 4
-    patch_size = 100
-    train_ratio = 0.8
-    rotate_training_data = False
-    Datasets_ver3 = {
-        'Train' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, rotate = rotate_training_data, train_ratio = train_ratio, categories=5),
-        'Validation' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, is_validating = True, rotate = rotate_training_data, train_ratio = train_ratio, categories=5),
-        'Prediction' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, is_evaluating = True, train_ratio = train_ratio, categories=5)
-    }
-    Dataloaders_ver3 = {
-        'Train' : DataLoader(Datasets_ver3['Train'], batch_size=batch_size),
-        'Validation' : DataLoader(Datasets_ver3['Validation'], batch_size=batch_size),
-        'Prediction' : DataLoader(Datasets_ver3['Prediction'], batch_size=2400//patch_size)
-    }
-    model = UrbanGreenSegmentation(out_channel=5)
-    criterion3 = nn.CrossEntropyLoss()
-    #옵티마이저 바꿔보기
-    optimizer3 = torch.optim.SGD(model.parameters(),lr = 0.0001, momentum = 0.9)
-    #스케줄러 steplr로 바꿔서 해보기. 
-    scheduler3 = torch.optim.lr_scheduler.StepLR(optimizer3, step_size = 50, gamma=0.9)
-
-    #best_model_path = legacytraining.train_model(model, dataloaders=Dataloaders_ver3, criterion=criterion3, num_epochs = 100, optimizer=optimizer3, scheduler=scheduler3, path='../Data/Model/Segmentation/Categories_5', description='Categories_5', device=device)
-    print('No Training. Using pretrained parameters...')
-    best_model_path = '/home/bcyoon/Byeongchan/Data/Model/Segmentation/Categories_5/2022.8.5/Best_Model_Parameters_of_15:55_removed_softmax.pth'
-
-    model.to(device)
-    model.load_state_dict(torch.load(best_model_path))
-
-    #region = input('Type region to get result (default:N11)') or 'N11'
-    region = 'N11'
-    raw_data_array_N11 ,raw_target_array_N11, OHE_target_array_N11 = dataprepare.prepare_raw_files(region, categories=5)
-    N11_prediction_dataset = dataprepare.TrainDataset4(raw_data_array_N11, OHE_target_array_N11, raw_target_array_N11, patch_size = patch_size, is_evaluating = True, train_ratio = train_ratio, categories=5)
-    N11_prediction_dataloader = DataLoader(N11_prediction_dataset, batch_size=2)
-    reference_data = f'/home/bcyoon/Byeongchan/Data/{region}/{region}_lidar.tif'
-    result_path = legacytraining.save_result2(model.to('cpu'), dataloader=N11_prediction_dataloader, path=f'../Data/{region}/Model/Segmentation/', description='lr_0.0001', reference_data=reference_data, patch_size=100, device = device, categories=5)
-    return f'Best Model Path : {best_model_path}\nResult Path : {result_path}'
-
-def train_category_7_DataParallel(gpu_list:str):
-    # --- GPU selection --- #
-    gpus = str(gpu_list) # slot number (e.g., 3), no gpu use -> write just ' '
-    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"]=str(gpus)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-
-    raw_data_array_N12 ,raw_target_array_N12, OHE_target_array_N12 = dataprepare.prepare_raw_files('N12', categories=7)
-    raw_data_array_H19 ,raw_target_array_H19, OHE_target_array_H19 = dataprepare.prepare_raw_files('H19', categories=7)
-    raw_data_array_M18 ,raw_target_array_M18, OHE_target_array_M18 = dataprepare.prepare_raw_files('M18', categories=7)
-
-    raw_data_array = np.concatenate((raw_data_array_N12, raw_data_array_H19, raw_data_array_M18), axis=-1)
-    raw_target_array = np.concatenate((raw_target_array_N12, raw_target_array_H19, raw_target_array_M18), axis=-1)
-    OHE_target_array = np.concatenate((OHE_target_array_N12, OHE_target_array_H19, OHE_target_array_M18), axis=-1)
-
-
-
     num_gpus = torch.cuda.device_count()
+    num_workers = num_gpus*4
     batch_size = num_gpus*4
     patch_size = 100
     train_ratio = 0.8
-    rotate_training_data = True
-    num_workers = num_gpus*4
+
+    rotate_training_data = input("Rotate Training Data? : (Default : False)")
+    if rotate_training_data == 'True':
+        rotate_training_data = True
+    else:
+        rotate_training_data = False
+
 
     Datasets_ver3 = {
         'Train' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, rotate = rotate_training_data, train_ratio = train_ratio, categories=5),
@@ -396,7 +350,8 @@ def train_category_7_DataParallel(gpu_list:str):
         'Validation' : DataLoader(Datasets_ver3['Validation'], batch_size=batch_size, num_workers=num_workers),
         'Prediction' : DataLoader(Datasets_ver3['Prediction'], batch_size=2400//patch_size, num_workers=num_workers)
     }
-    model = UrbanGreenSegmentation_Batchnorm_Deactivated(out_channel=7)
+
+    model = UrbanGreenSegmentation_Interpolation(out_channel=5)
     model = nn.DataParallel(model)
     criterion3 = nn.CrossEntropyLoss()
     #옵티마이저 바꿔보기
@@ -413,11 +368,70 @@ def train_category_7_DataParallel(gpu_list:str):
     model.to(device)
     model.load_state_dict(torch.load(best_model_path))
 
-    raw_data_array_N11 ,raw_target_array_N11, OHE_target_array_N11 = dataprepare.prepare_raw_files(region, categories=7)
-    N11_prediction_dataset = dataprepare.TrainDataset4(raw_data_array_N11, OHE_target_array_N11, raw_target_array_N11, patch_size = patch_size, is_evaluating = True, train_ratio = train_ratio, categories=7)
+    raw_data_array_N11 ,raw_target_array_N11, OHE_target_array_N11 = dataprepare.prepare_raw_files(region, categories=5)
+    N11_prediction_dataset = dataprepare.TrainDataset4(raw_data_array_N11, OHE_target_array_N11, raw_target_array_N11, patch_size = patch_size, is_evaluating = True, train_ratio = train_ratio, categories=5)
     N11_prediction_dataloader = DataLoader(N11_prediction_dataset, batch_size=2)
     reference_data = f'/home/bcyoon/Byeongchan/Data/{region}/{region}_lidar.tif'
-    result_path = legacytraining.save_result2(model.to('cpu'), dataloader=N11_prediction_dataloader, path=f'../Data/{region}/Model/Segmentation/', description=description, reference_data=reference_data, patch_size=patch_size, device = device, categories=7)
+    result_path = legacytraining.save_result2(model.to('cpu'), dataloader=N11_prediction_dataloader, path=f'../Data/{region}/Model/Segmentation/', description=description, reference_data=reference_data, patch_size=patch_size, device = device, categories=5)
+    return f'Best Model Path : {best_model_path}\nResult Path : {result_path}'
+
+def train_category_7_DataParallel(gpu_list:str):
+    # --- GPU selection --- #
+    gpus = str(gpu_list) # slot number (e.g., 3), no gpu use -> write just ' '
+    os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"]=str(gpus)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    categories = 7
+
+    raw_data_array_N12 ,raw_target_array_N12, OHE_target_array_N12 = dataprepare.prepare_raw_files('N12', categories=categories)
+    raw_data_array_H19 ,raw_target_array_H19, OHE_target_array_H19 = dataprepare.prepare_raw_files('H19', categories=categories)
+    raw_data_array_M18 ,raw_target_array_M18, OHE_target_array_M18 = dataprepare.prepare_raw_files('M18', categories=categories)
+
+    raw_data_array = np.concatenate((raw_data_array_N12, raw_data_array_H19, raw_data_array_M18), axis=-1)
+    raw_target_array = np.concatenate((raw_target_array_N12, raw_target_array_H19, raw_target_array_M18), axis=-1)
+    OHE_target_array = np.concatenate((OHE_target_array_N12, OHE_target_array_H19, OHE_target_array_M18), axis=-1)
+
+
+
+    num_gpus = torch.cuda.device_count()
+    batch_size = num_gpus*4
+    patch_size = 100
+    train_ratio = 0.8
+    rotate_training_data = True
+    num_workers = num_gpus*4
+
+    Datasets_ver3 = {
+        'Train' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, rotate = rotate_training_data, train_ratio = train_ratio, categories=categories),
+        'Validation' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, is_validating = True, rotate = rotate_training_data, train_ratio = train_ratio, categories=categories),
+        'Prediction' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, is_evaluating = True, train_ratio = train_ratio, categories=categories)
+    }
+    Dataloaders_ver3 = {
+        'Train' : DataLoader(Datasets_ver3['Train'], batch_size=batch_size, num_workers=num_workers),
+        'Validation' : DataLoader(Datasets_ver3['Validation'], batch_size=batch_size, num_workers=num_workers),
+        'Prediction' : DataLoader(Datasets_ver3['Prediction'], batch_size=2400//patch_size, num_workers=num_workers)
+    }
+    model = UrbanGreenSegmentation(out_channel=categories)
+    model = nn.DataParallel(model)
+    criterion3 = nn.CrossEntropyLoss()
+    #옵티마이저 바꿔보기
+    optimizer3 = torch.optim.Adam(model.parameters(), lr=0.001)
+    #스케줄러 steplr로 바꿔서 해보기. 
+    scheduler3 = torch.optim.lr_scheduler.StepLR(optimizer3, step_size = 50, gamma=0.9)
+
+    description = str(input("Enter Description : "))
+    region =  str(input("Enter Region (Default : N11) :")) or "N11"
+
+    best_model_path = legacytraining.train_model(model, dataloaders=Dataloaders_ver3, criterion=criterion3, num_epochs = 50, optimizer=optimizer3, scheduler=scheduler3, path='../Data/Model/Segmentation/Categories_5', description=description, device=device)
+    
+
+    model.to(device)
+    model.load_state_dict(torch.load(best_model_path))
+
+    raw_data_array_N11 ,raw_target_array_N11, OHE_target_array_N11 = dataprepare.prepare_raw_files(region, categories=7)
+    N11_prediction_dataset = dataprepare.TrainDataset4(raw_data_array_N11, OHE_target_array_N11, raw_target_array_N11, patch_size = patch_size, is_evaluating = True, train_ratio = train_ratio, categories=categories)
+    N11_prediction_dataloader = DataLoader(N11_prediction_dataset, batch_size=2)
+    reference_data = f'/home/bcyoon/Byeongchan/Data/{region}/{region}_lidar.tif'
+    result_path = legacytraining.save_result2(model.to('cpu'), dataloader=N11_prediction_dataloader, path=f'../Data/{region}/Model/Segmentation/', description=description, reference_data=reference_data, patch_size=patch_size, device = device, categories=categories)
     return f'Best Model Path : {best_model_path}\nResult Path : {result_path}'
 
 def save_result(model, best_model_path):
@@ -432,7 +446,7 @@ def save_result(model, best_model_path):
     return f'Best Model Path : {best_model_path}\nResult Path : {result_path}'
 # %%
 def main():
-    best_model_path = train_category_7_DataParallel(gpu_list='4,5,6,7')
+    best_model_path = train_category_5_Interpolate_DataParallel(gpu_list='0')
     print(best_model_path)
     return 0
 
