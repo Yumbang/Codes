@@ -2,6 +2,7 @@
 import os
 import torch
 import datetime
+import time
 import numpy as np
 import pytorch_lightning as pl
 import torch.nn.functional as F
@@ -268,12 +269,12 @@ def train_category_5_DataParallel(gpu_list:str):
 
 
 
-    batch_size = 16
+    num_gpus = torch.cuda.device_count()
+    num_workers = num_gpus*4
+    batch_size = num_gpus*4
     patch_size = 100
     train_ratio = 0.8
     rotate_training_data = True
-    num_gpus = torch.cuda.device_count()
-    num_workers = num_gpus*4
 
     Datasets_ver3 = {
         'Train' : dataprepare.TrainDataset4(raw_data_array, OHE_target_array, raw_target_array, patch_size = patch_size, rotate = rotate_training_data, train_ratio = train_ratio, categories=5),
@@ -333,11 +334,12 @@ def train_category_5_Interpolate_DataParallel(gpu_list:str):
     patch_size = 100
     train_ratio = 0.8
 
-    rotate_training_data = input("Rotate Training Data? : (Default : False)")
+    '''rotate_training_data = input("Rotate Training Data? : (Default : False)")
     if rotate_training_data == 'True':
         rotate_training_data = True
     else:
-        rotate_training_data = False
+        rotate_training_data = False'''
+    rotate_training_data = True
 
 
     Datasets_ver3 = {
@@ -359,8 +361,10 @@ def train_category_5_Interpolate_DataParallel(gpu_list:str):
     #스케줄러 steplr로 바꿔서 해보기. 
     scheduler3 = torch.optim.lr_scheduler.StepLR(optimizer3, step_size = 50, gamma=0.9)
 
-    description = str(input("Enter description for the model : "))
-    region = str(input("Enter region to evaluate (Default : N11) : ")) or "N11"
+    #description = str(input("Enter description for the model : "))
+    description = 'RADA_Interpolation_Instead_of_Upconv_FixedDataloading'
+    #region = str(input("Enter region to evaluate (Default : N11) : ")) or "N11"
+    region = "N11"
 
     best_model_path = legacytraining.train_model(model, dataloaders=Dataloaders_ver3, criterion=criterion3, num_epochs = 50, optimizer=optimizer3, scheduler=scheduler3, path='../Data/Model/Segmentation/Categories_5', description=description, device=device)
     
@@ -446,7 +450,20 @@ def save_result(model, best_model_path):
     return f'Best Model Path : {best_model_path}\nResult Path : {result_path}'
 # %%
 def main():
-    best_model_path = train_category_5_Interpolate_DataParallel(gpu_list='0')
+    now = datetime.datetime.now()
+    after = datetime.timedelta(hours=int(input("Enter time to do the task after in hours (default : 3 hours) : ")) or 3)
+    res = now + after
+    print(f'Task is reserved at {res}')
+
+    while True:
+        now2 = datetime.datetime.now()
+        if now2 > res:
+            break
+        else:
+            print(f'Not yet. {now2-res} time left.')
+            time.sleep(60)
+
+    best_model_path = train_category_5_Interpolate_DataParallel(gpu_list='4,5,6,7')
     print(best_model_path)
     return 0
 

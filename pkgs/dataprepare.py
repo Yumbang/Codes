@@ -326,8 +326,8 @@ class TrainDataset4(Dataset):
 
         for i in range(0,data_array.shape[1]//patch_size):
             for j in range(0,data_array.shape[2]//patch_size):
-                self.data[data_array.shape[1]//patch_size*i+j,:,:,:] = data_array[:,i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size]
-                print(f'Migrating data from {i*patch_size}:{(i+1)*patch_size},{j*patch_size}:{(j+1)*patch_size} to {data_array.shape[2]//patch_size*i+j}')
+                self.data[data_array.shape[2]//patch_size*i+j,:,:,:] = data_array[:,i*patch_size:(i+1)*patch_size, j*patch_size:(j+1)*patch_size]
+                #print(f'Migrating data from {i*patch_size}:{(i+1)*patch_size},{j*patch_size}:{(j+1)*patch_size} to {data_array.shape[2]//patch_size*i+j}')
 
         '''self.label_OHE = np.zeros(((data_array.shape[1]//patch_size) * (data_array.shape[2]//patch_size), target_array_OHE.shape[0] ,patch_size, patch_size), dtype=float)
         for k in range(0,data_array.shape[1]//patch_size):
@@ -338,12 +338,12 @@ class TrainDataset4(Dataset):
 
         for k in range(0,data_array.shape[1]//patch_size):
             for l in range(0,data_array.shape[2]//patch_size):
-                self.label_OHE[data_array.shape[1]//patch_size*k+l,:,:] = target_array_RAW[k*patch_size:(k+1)*patch_size, l*patch_size:(l+1)*patch_size]
+                self.label_OHE[data_array.shape[2]//patch_size*k+l,:,:] = target_array_RAW[k*patch_size:(k+1)*patch_size, l*patch_size:(l+1)*patch_size]
 
         self.label_RAW = np.zeros(((data_array.shape[1]//patch_size) * (data_array.shape[2]//patch_size),categories))
         for k in range(0,data_array.shape[1]//patch_size):
             for l in range(0,data_array.shape[2]//patch_size):
-                self.label_RAW[data_array.shape[1]//patch_size*k+l,:] = np.bincount(target_array_RAW[k*patch_size:(k+1)*patch_size, l*patch_size:(l+1)*patch_size].reshape(-1), minlength=categories)/(patch_size*patch_size)
+                self.label_RAW[data_array.shape[2]//patch_size*k+l,:] = np.bincount(target_array_RAW[k*patch_size:(k+1)*patch_size, l*patch_size:(l+1)*patch_size].reshape(-1), minlength=categories)/(patch_size*patch_size)
 
 
         if not is_evaluating:
