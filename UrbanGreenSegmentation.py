@@ -270,7 +270,7 @@ def train_category_5_DataParallel(gpu_list:str):
 
 
     num_gpus = torch.cuda.device_count()
-    num_workers = num_gpus*4
+    num_workers = num_gpus*2
     batch_size = num_gpus*4
     patch_size = 100
     train_ratio = 0.8
@@ -375,7 +375,7 @@ def train_category_5_Interpolate_DataParallel(gpu_list:str):
     raw_data_array_N11 ,raw_target_array_N11, OHE_target_array_N11 = dataprepare.prepare_raw_files(region, categories=5)
     N11_prediction_dataset = dataprepare.TrainDataset4(raw_data_array_N11, OHE_target_array_N11, raw_target_array_N11, patch_size = patch_size, is_evaluating = True, train_ratio = train_ratio, categories=5)
     N11_prediction_dataloader = DataLoader(N11_prediction_dataset, batch_size=2)
-    reference_data = f'/home/bcyoon/Byeongchan/Data/{region}/{region}_lidar.tif'
+    reference_data = f'/Share/projects/intern/Byeongchan/Data/{region}/{region}_lidar.tif'
     result_path = legacytraining.save_result2(model.to('cpu'), dataloader=N11_prediction_dataloader, path=f'../Data/{region}/Model/Segmentation/', description=description, reference_data=reference_data, patch_size=patch_size, device = device, categories=5)
     return f'Best Model Path : {best_model_path}\nResult Path : {result_path}'
 

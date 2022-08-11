@@ -133,6 +133,8 @@ def save_result2(model: Type[nn.Module], dataloader : Type[DataLoader], path:str
             zipped_results.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/',f'tmp_{descr}/', f'Result_{idx}_{descr}.tif'), f'Result_{idx}_{descr}.tif')
 
     zipped_results.close()
+    print('Removing temp directory')
+    shutil.rmtree(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/',f'tmp_{descr}/'))
     return os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{descr}.zip')
 
 def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num_epochs=13, train_rate: float = 0.8, batch_size: int = 60, path:str = '../Data/N12/Model/', description:str = 'no_description', reference_data:str = ''): 
