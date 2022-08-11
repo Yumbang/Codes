@@ -212,7 +212,7 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
         valid_loss_history.append(epoch_valid_loss)
 
         torch.save(model.state_dict(), os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', '{0:0=2d}.pth'.format(epoch)))
-        zipped_model.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', '{0:0=2d}.pth'.format(epoch)))
+        #zipped_model.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', '{0:0=2d}.pth'.format(epoch)))
 
     plt.figure(figsize=(20,8))
     plt.plot(train_loss_history, 'r-')
@@ -221,7 +221,8 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
     zipped_model.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', f'Tendency_{description}.png'))
     zipped_model.writestr('README.txt', f'{description}\nThe best Model : #{best_model_epoch}th model with loss {least_valid_loss}\nOptimizer : {optimizer}\nLoss function : {criterion}\nBatch size : {batch_size}\nScheduler : {scheduler}\nPatch size : {patch_size}\nTotal epochs : {num_epochs}\nModel information :\n{model.modules}')
     
-    print('Best loss: {:4f}, in Epoch #{:0=3d}'.format(least_valid_loss, best_model_epoch))    
+    print('Best loss: {:4f}, in Epoch #{:0=3d}'.format(least_valid_loss, best_model_epoch))
+    zipped_model.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', '{0:0=2d}.pth'.format(best_model_epoch)))
     zipped_model.close()
     shutil.copy(src=os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', f'tmp_{description}/', '{0:0=2d}.pth'.format(epoch)), dst=os.path.join(path,f'{now.year}.{now.month}.{now.day}/', 'Best_Model_Parameters_of_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}'+'.pth'))
     print('Model information is saved in '+os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', '{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{description}'+'.zip'))

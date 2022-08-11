@@ -322,7 +322,7 @@ class TrainDataset4(Dataset):
         #print(f'Data shape: {data_array.shape} | Target shape: {target_array_OHE.shape}')
 
         self.data = np.zeros(((data_array.shape[1]//patch_size) * (data_array.shape[2]//patch_size), data_array.shape[0], patch_size, patch_size))
-        print(f'Internal data array : {self.data.shape}')
+        #print(f'Internal data array : {self.data.shape}')
 
         for i in range(0,data_array.shape[1]//patch_size):
             for j in range(0,data_array.shape[2]//patch_size):
