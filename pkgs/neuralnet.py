@@ -220,6 +220,7 @@ class UNet_Batchnorm_Deactivated(nn.Module):
         self.dec4 = SegBlock_Batchnorm_Deactivated(False,128,64, is_last = True)
 
     def forward(self,x):
+        
         enc1 = self.enc1(x)
         x = self.pool1(enc1)
         x = self.dropout1(x)
@@ -300,4 +301,72 @@ class UNet_Interpolation(nn.Module):
         x = self.upconv4(x)
         x = self.dropout7(x)
         x = self.dec4(crop_add(enc1, x))
+        return x
+
+class UNet_Padding(nn.Module):
+    def __init__(self, in_channel:int = 3):
+        super(UNet_Padding, self).__init__()
+        self.enc1 = SegBlock(True, in_channel=in_channel,out_channel=64)
+        self.pool1 = nn.MaxPool2d(2)
+        self.dropout1 = nn.Dropout(0.1)
+        self.enc2 = SegBlock(True, 64,128)
+        self.pool2 = nn.MaxPool2d(2)
+        self.dropout2 = nn.Dropout(0.1)
+        self.enc3 = SegBlock(True, 128, 256)
+        self.pool3 = nn.MaxPool2d(2)
+        self.dropout3 = nn.Dropout(0.1)
+        self.enc4 = SegBlock(True, 256, 512)
+        self.pool4 = nn.MaxPool2d(2)
+        self.dropout4 = nn.Dropout(0.1)
+        self.dec0 = SegBlock(False, 512, 1024)
+        self.upconv1 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2, bias=False)
+        self.dec1 = SegBlock(False,1024,512)
+        self.upconv2 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2, bias=False)
+        self.dropout5 = nn.Dropout(0.1)
+        self.dec2 = SegBlock(False,512,256)
+        self.upconv3 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2, bias=False)
+        self.dropout6 = nn.Dropout(0.1)
+        self.dec3 = SegBlock(False,256,128)
+        self.upconv4 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2, bias=False)
+        self.dropout7 = nn.Dropout(0.1)
+        self.dec4 = SegBlock(False,128,64, is_last = True)
+
+    def forward(self,x):
+        x = F.pad(input=x, pad=(2,2,2,2), mode='reflect')#52
+        enc1 = self.enc1(x)#48
+        x = self.pool1(enc1)#24
+        x = self.dropout1(x)
+        x = F.pad(input=x, pad=(2,2,2,2), mode='reflect')#28
+        enc2 = self.enc2(x)#24
+        x = self.pool2(enc2)#12
+        x = self.dropout2(x)
+        x = F.pad(input=x, pad=(2,2,2,2), mode='reflect')#16
+        enc3 = self.enc3(x)#12
+        x = self.pool3(enc3)#6
+        x = self.dropout3(x)
+        x = F.pad(input=x, pad=(2,2,2,2), mode='reflect')#10
+        enc4 = self.enc4(x)#6
+        x = self.pool4(enc4)#3
+        x = self.dropout4(x)
+        x = F.pad(input=x, pad=(2,2,2,2), mode='reflect')#7
+        x = self.dec0(x)#3
+        x = self.upconv1(x)#6
+        x = torch.cat((enc4,x), dim=1)#
+        x = F.pad(input=x, pad=(2,2,2,2), mode='reflect')#10
+        x = self.dec1(x)#6
+        x = self.upconv2(x)#12
+        x = self.dropout5(x)
+        x = torch.cat((enc3, x), dim=1)
+        x = F.pad(input=x, pad=(2,2,2,2), mode='reflect')#16
+        x = self.dec2(x)#12
+        x = self.upconv3(x)#24
+        x = self.dropout6(x)
+        x = torch.cat((enc2, x), dim=1)
+        x = F.pad(input=x, pad=(2,2,2,2), mode='reflect')#28
+        x = self.dec3(x)#24
+        x = self.upconv4(x)#48
+        x = self.dropout7(x)
+        x = torch.cat((enc1, x), dim=1)
+        x = F.pad(input=x, pad=(2,2,2,2), mode='reflect')#52
+        x = self.dec4(x)#48
         return x

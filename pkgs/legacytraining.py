@@ -75,7 +75,7 @@ def save_result2(model: Type[nn.Module], dataloader : Type[DataLoader], path:str
     best_model = model.to(device)
     os.makedirs(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/',f'tmp_{descr}/'), exist_ok=True)
     zipped_results = zipfile.ZipFile(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{descr}.zip'), 'w')
-    prediction = np.zeros((288, 2, categories, 100, 100))
+    prediction = np.zeros((2400*2400//(patch_size*patch_size*2), 2, categories, patch_size, patch_size))
 
     with tqdm.tqdm(enumerate(dataloader)) as data_pbar:
         data_pbar.set_description('Predicting...')
@@ -86,11 +86,15 @@ def save_result2(model: Type[nn.Module], dataloader : Type[DataLoader], path:str
     
 
     prediction_expanded = np.zeros((categories+1,2400,2400))
-    for i in range(24):
-        for j in range(12):
+
+    w = 2400//patch_size
+    h = 1200//patch_size
+
+    for i in range(w):
+        for j in range(h):
             for k in range(categories):
-                prediction_expanded[k,i*patch_size:(i+1)*patch_size, 2*j*patch_size:(2*j+1)*patch_size] = prediction[12*i+j, 0, k, :, :]
-                prediction_expanded[k,i*patch_size:(i+1)*patch_size, (2*j+1)*patch_size:(2*j+2)*patch_size] = prediction[12*i+j, 1, k, :, :]
+                prediction_expanded[k,i*patch_size:(i+1)*patch_size, 2*j*patch_size:(2*j+1)*patch_size] = prediction[h*i+j, 0, k, :, :]
+                prediction_expanded[k,i*patch_size:(i+1)*patch_size, (2*j+1)*patch_size:(2*j+2)*patch_size] = prediction[h*i+j, 1, k, :, :]
     
     prediction_expanded[-1,:,:] = prediction_expanded[0:-1,:,:].argmax(axis=0)
 
@@ -104,9 +108,14 @@ def save_result2(model: Type[nn.Module], dataloader : Type[DataLoader], path:str
     elif categories == 5:
         layer_index = [1,2,9,10,11]
     
-    '''idx = np.array(prediction_expanded[-1,:,:], dtype=int)
-    prediction_expanded[-1,:,:] = layer_index[idx]'''
-    print(layer_index)
+    '''prediction_total = np.zeros_like(prediction_expanded[-1,:,:])
+    for i in range(categories):
+        print(f'Converting {i} to {layer_index[i]}')
+        prediction_total[:,:] = np.where(prediction_expanded[-1,:,:] == i, layer_index[i], prediction_expanded[-1,:,:])
+    prediction_expanded[-1,:,:] = prediction_total
+
+    print(layer_index)'''
+    
     with tqdm.trange(prediction_expanded.shape[0]) as write_pbar:
         write_pbar.set_description('Writing data')
         for i in write_pbar:
@@ -133,8 +142,8 @@ def save_result2(model: Type[nn.Module], dataloader : Type[DataLoader], path:str
             zipped_results.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/',f'tmp_{descr}/', f'Result_{idx}_{descr}.tif'), f'Result_{idx}_{descr}.tif')
 
     zipped_results.close()
-    print('Removing temp directory')
-    shutil.rmtree(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/',f'tmp_{descr}/'))
+    #print('Removing temp directory')
+    #shutil.rmtree(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/',f'tmp_{descr}/'))
     return os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{descr}/','RESULT_{0:0=2d}:{1:0=2d}'.format(now.hour, now.minute)+f'_{descr}.zip')
 
 def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num_epochs=13, train_rate: float = 0.8, batch_size: int = 60, path:str = '../Data/N12/Model/', description:str = 'no_description', reference_data:str = ''): 
@@ -194,6 +203,7 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
                 
                 #print(f'{i}th batch')
             #pbar.clear()
+
             
 
         
@@ -214,13 +224,17 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
         valid_loss_history.append(epoch_valid_loss)
 
         torch.save(model.state_dict(), os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', '{0:0=2d}.pth'.format(epoch)))
-        #zipped_model.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', '{0:0=2d}.pth'.format(epoch)))
+        zipped_model.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/',f'tmp_{description}/', '{0:0=2d}.pth'.format(epoch)))
 
     plt.figure(figsize=(20,8))
     plt.plot(train_loss_history, 'r-')
     plt.plot(valid_loss_history, 'bo')
     plt.savefig(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', f'Tendency_{description}.png'), dpi=300)
     zipped_model.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', f'Tendency_{description}.png'))
+    np.savetxt(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', f'train_loss_hist_{description}.csv'),train_loss_history, delimiter=',')
+    np.savetxt(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', f'valid_loss_hist_{description}.csv'),valid_loss_history, delimiter=',')
+    zipped_model.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', f'train_loss_hist_{description}.csv'))
+    zipped_model.write(os.path.join(path,f'{now.year}.{now.month}.{now.day}/',f'{description}/', f'valid_loss_hist_{description}.csv'))
     zipped_model.writestr('README.txt', f'{description}\nThe best Model : #{best_model_epoch}th model with loss {least_valid_loss}\nOptimizer : {optimizer}\nLoss function : {criterion}\nBatch size : {batch_size}\nScheduler : {scheduler}\nPatch size : {patch_size}\nTotal epochs : {num_epochs}\nModel information :\n{model.modules}')
     
     print('Best loss: {:4f}, in Epoch #{:0=3d}'.format(least_valid_loss, best_model_epoch))
